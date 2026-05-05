@@ -10,7 +10,9 @@
     "build:icons": "node scripts/build-svg-sprite.js",
     "test": "vitest run",
     "build:server": "tsc --project tsconfig.server.json",
-    "serve": "node dist-server/index.js"
+    "build:all": "npm run build && npm run build:server",
+    "serve": "node dist-server/index.js",
+    "start": "npm run build:all && node dist-server/index.js"
   },
   "author": "Alexander van Oostenrijk / Independent Software (www.independent-software.com)",
   "license": "MIT",
