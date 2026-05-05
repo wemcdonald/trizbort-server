@@ -1,0 +1,11 @@
+{
+  "mapSource": "design/map.json",
+  "generators": [
+    {
+      "target": "inform7",
+      "output": "src/egreth.inform/Source/story.ni",
+      "sentinelBegin": "BEGIN GENERATED MAP",
+      "sentinelEnd": "END GENERATED MAP"
+    }
+  ]
+}
