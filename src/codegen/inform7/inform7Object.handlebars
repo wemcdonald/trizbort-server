@@ -1,4 +1,4 @@
-A {{{this.name}}} is in {{{container.name}}}.
+{{#if this.kind}}{{capitalize this.kind}} called {{{this.name}}} is in {{{container.name}}}.{{else}}A {{{this.name}}} is in {{{container.name}}}.{{/if}}{{#if this.description}} "{{{this.description}}}"{{/if}}
 {{#each this.content}}
 {{> inform7Object object=this container=../this}}
 {{/each}}

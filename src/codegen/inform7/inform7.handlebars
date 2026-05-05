@@ -4,7 +4,7 @@
 {{#each map.rooms}} 
 Part {{{validName this.name}}}
 
-There is a room called {{{validName this.name}}}. {{#if this.dark}}It is dark.{{/if}}
+{{{validName this.name}}} is a room.{{#if this.dark}} It is dark.{{/if}}{{#if this.description}} "{{{this.description}}}"{{/if}}
 {{#if (isStartRoom this)}}The player is in {{{validName this.name}}}.{{/if}}
 {{!-- Connections for this room --}}
 {{#each this.connections}}
