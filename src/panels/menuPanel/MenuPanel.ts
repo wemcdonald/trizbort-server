@@ -4,6 +4,7 @@ import { MapXMLLoader } from '../../io/mapXML'
 import { Dispatcher } from '../../Dispatcher'
 import { AppEvent } from '../../enums'
 import { MapJSON } from '../../io/mapJSON'
+import { isServerMode, loadMapFromServer, saveMapToServer, watchServerMap } from '../../io/serverSync'
 import { Panel }  from '../'
 import { Map } from '../../models';
 import { PngExporter } from '../../PngExporter';
@@ -54,6 +55,51 @@ export class MenuPanel extends Panel {
 
     this.inputLoad.addEventListener('change', this.handleInputLoad);
     this.inputImport.addEventListener('change', this.handleInputImport);
+
+    if (isServerMode()) {
+      this.initServerMode();
+    }
+  }
+
+  private _saveDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  private initServerMode() {
+    // Load map from server on startup
+    loadMapFromServer().then(text => {
+      try {
+        const map = MapJSON.load(text);
+        App.map = map;
+        Dispatcher.notify(AppEvent.Load, null);
+      } catch (e) {
+        console.error('Failed to load map from server:', e);
+      }
+    });
+
+    // Auto-save after any map-mutating event (debounced)
+    Dispatcher.subscribe(this);
+
+    // Reload if map.json changes externally
+    watchServerMap(() => {
+      loadMapFromServer().then(text => {
+        try {
+          const map = MapJSON.load(text);
+          App.map = map;
+          Dispatcher.notify(AppEvent.Load, null);
+        } catch (e) {
+          console.error('Server map reload failed:', e);
+        }
+      });
+    });
+  }
+
+  notify(event: AppEvent, _obj: any) {
+    if (!isServerMode()) return;
+    if (event === AppEvent.MouseMove || event === AppEvent.Select || event === AppEvent.Load) return;
+    if (this._saveDebounce) clearTimeout(this._saveDebounce);
+    this._saveDebounce = setTimeout(() => {
+      const json = MapJSON.save(App.map);
+      saveMapToServer(json).catch(e => console.error('Auto-save failed:', e));
+    }, 800);
   }
 
   private handleInputLoad = () => {
@@ -109,11 +155,30 @@ export class MenuPanel extends Panel {
   }
 
   actionLoadMap() {
+    if (isServerMode()) {
+      loadMapFromServer().then(text => {
+        try {
+          const map = MapJSON.load(text);
+          App.map = map;
+          Dispatcher.notify(AppEvent.Load, null);
+        } catch (e) {
+          console.error('Failed to reload from server:', e);
+        }
+      });
+      return;
+    }
     this.inputLoad.click();
   }
 
   actionSaveMap() {
     this.close();
+    if (isServerMode()) {
+      const json = MapJSON.save(App.map);
+      saveMapToServer(json)
+        .then(() => IdToast.toast('Map saved to server'))
+        .catch(e => IdToast.toast(`Save failed: ${e.message}`));
+      return;
+    }
     let json:string = MapJSON.save(App.map);
     let blob = new Blob([json], { type: "text/plain; charset:utf-8"});
     let title = App.map.title;

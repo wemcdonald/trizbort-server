@@ -1,7 +1,9 @@
 import express from 'express'
+import type { Response } from 'express'
 import { join, resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { readFile } from 'fs/promises'
+import { watch } from 'chokidar'
 import { loadConfig } from './config.js'
 import { createRouter } from './routes.js'
 
@@ -13,7 +15,27 @@ async function main() {
 
   const app = express()
   app.use(express.json({ limit: '10mb' }))
+
+  // SSE: registered before the API router so Express matches it first
+  const sseClients = new Set<Response>()
+  app.get('/api/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.flushHeaders()
+    sseClients.add(res)
+    req.on('close', () => sseClients.delete(res))
+  })
+
   app.use('/api', createRouter(projectDir, cfg))
+
+  // Watch map.json for external changes, notify all SSE clients
+  const mapPath = join(projectDir, cfg.mapSource)
+  watch(mapPath, { ignoreInitial: true }).on('change', () => {
+    for (const client of sseClients) {
+      client.write('data: reload\n\n')
+    }
+  })
 
   const distDir = join(__dirname, '../dist')
 
