@@ -55,7 +55,7 @@ async function main() {
 
   app.use('/', express.static(distDir))
 
-  app.get('*', (_req, res) => res.sendFile(join(distDir, 'index.html')))
+  app.get('/*path', (_req, res) => res.sendFile(join(distDir, 'index.html')))
 
   const port = process.env.PORT ?? 3333
   app.listen(port, () => console.log(`trizbort-server running at http://localhost:${port}`))
