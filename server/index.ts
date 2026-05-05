@@ -53,6 +53,7 @@ async function main() {
     }
   })
 
+  app.use('/app', express.static(distDir))  // Vite base: '/app/' — assets request /app/...
   app.use('/', express.static(distDir))
 
   app.get('/*path', (_req, res) => res.sendFile(join(distDir, 'index.html')))

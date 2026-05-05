@@ -41,6 +41,7 @@ async function main() {
             res.status(500).send('Client not built — run: npm run build');
         }
     });
+    app.use('/app', express.static(distDir)); // Vite base: '/app/' — assets request /app/...
     app.use('/', express.static(distDir));
     app.get('/*path', (_req, res) => res.sendFile(join(distDir, 'index.html')));
     const port = Number(process.env.PORT ?? 3333);
