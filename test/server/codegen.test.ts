@@ -30,4 +30,9 @@ describe('generateInform7', () => {
     const out = generateInform7(minimalMap)
     expect(out).toContain('The player is in Kitchen')
   })
+
+  it('does not emit title declaration (story.ni already has it)', () => {
+    const out = generateInform7(minimalMap)
+    expect(out).not.toMatch(/^"Test"/)
+  })
 })

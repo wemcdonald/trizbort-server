@@ -107,5 +107,7 @@ export function generateInform7(rawMap: any): string {
 
   Handlebars.registerHelper('isStartRoom', (room: any) => room.isStart === true)
 
-  return mainTpl({ map: { title: rawMap.title, author: rawMap.author, rooms } })
+  const full = mainTpl({ map: { title: rawMap.title, author: rawMap.author, rooms } })
+  // Strip the title/author declaration line — story.ni already declares it
+  return full.replace(/^"[^"]*".*\n/, '').trimStart()
 }
