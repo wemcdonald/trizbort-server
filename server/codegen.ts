@@ -12,7 +12,10 @@ const objTpl = Handlebars.compile(readFileSync(join(templateDir, 'inform7Object.
 Handlebars.registerPartial('inform7Object', objTpl)
 
 Handlebars.registerHelper('validName', (str: string) => str?.replace(/[^a-zA-Z0-9 ]/g, '') ?? '')
-Handlebars.registerHelper('capitalize', (str: string) => str ? str[0].toUpperCase() + str.slice(1) : '')
+Handlebars.registerHelper('capitalize', (str: unknown) => {
+  if (!str || typeof str !== 'string' || str.length === 0) return ''
+  return str[0].toUpperCase() + str.slice(1)
+})
 
 // ConnectorType enum: Default=0, In=1, Out=2, Up=3, Down=4
 // Direction enum: N=0, NNE=1, NE=2, ... S=8, ... W=12, ... NW=14, NNW=15
@@ -21,6 +24,21 @@ const COMPASS = [
   'southeast','southsoutheast','south','southsouthwest','southwest','westsouthwest',
   'west','westnorthwest','northwest','northnorthwest'
 ]
+// ObjectKind enum → I7 kind string (empty = default "thing", no kind declaration needed)
+const OBJECT_KIND: Record<number, string> = {
+  0: 'man',        // PersonMale
+  1: 'woman',      // PersonFemale
+  2: 'person',     // PersonNeuter
+  3: '',           // ProperNamed — thing
+  4: 'person',     // Actor
+  5: '',           // Item — thing (default)
+  6: 'scenery',    // Scenery
+  7: 'supporter',  // Supporter
+  8: 'container',  // Container
+  9: '',           // SingularNamed
+  10: '',          // PluralNamed
+}
+
 Handlebars.registerHelper('dirToStr', (dir: number, type: number) => {
   switch (type) {
     case 1: return 'inside'
@@ -98,7 +116,7 @@ export function generateInform7(rawMap: any): string {
       isStart: r.id === startRoomId,
       objects: (r.objects ?? []).map((o: any) => ({
         name: o._name ?? o.name ?? '',
-        kind: o._kind ?? o.kind ?? '',
+        kind: OBJECT_KIND[o._kind ?? o.kind] ?? '',
         description: o._description ?? o.description ?? '',
         content: []
       })),

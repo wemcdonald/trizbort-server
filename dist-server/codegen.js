@@ -8,7 +8,11 @@ const mainTpl = Handlebars.compile(readFileSync(join(templateDir, 'inform7.handl
 const objTpl = Handlebars.compile(readFileSync(join(templateDir, 'inform7Object.handlebars'), 'utf8'));
 Handlebars.registerPartial('inform7Object', objTpl);
 Handlebars.registerHelper('validName', (str) => str?.replace(/[^a-zA-Z0-9 ]/g, '') ?? '');
-Handlebars.registerHelper('capitalize', (str) => str ? str[0].toUpperCase() + str.slice(1) : '');
+Handlebars.registerHelper('capitalize', (str) => {
+    if (!str || typeof str !== 'string' || str.length === 0)
+        return '';
+    return str[0].toUpperCase() + str.slice(1);
+});
 // ConnectorType enum: Default=0, In=1, Out=2, Up=3, Down=4
 // Direction enum: N=0, NNE=1, NE=2, ... S=8, ... W=12, ... NW=14, NNW=15
 const COMPASS = [
@@ -16,6 +20,20 @@ const COMPASS = [
     'southeast', 'southsoutheast', 'south', 'southsouthwest', 'southwest', 'westsouthwest',
     'west', 'westnorthwest', 'northwest', 'northnorthwest'
 ];
+// ObjectKind enum → I7 kind string (empty = default "thing", no kind declaration needed)
+const OBJECT_KIND = {
+    0: 'man', // PersonMale
+    1: 'woman', // PersonFemale
+    2: 'person', // PersonNeuter
+    3: '', // ProperNamed — thing
+    4: 'person', // Actor
+    5: '', // Item — thing (default)
+    6: 'scenery', // Scenery
+    7: 'supporter', // Supporter
+    8: 'container', // Container
+    9: '', // SingularNamed
+    10: '', // PluralNamed
+};
 Handlebars.registerHelper('dirToStr', (dir, type) => {
     switch (type) {
         case 1: return 'inside';
@@ -70,7 +88,7 @@ export function generateInform7(rawMap) {
         isStart: r.id === startRoomId,
         objects: (r.objects ?? []).map((o) => ({
             name: o._name ?? o.name ?? '',
-            kind: o._kind ?? o.kind ?? '',
+            kind: OBJECT_KIND[o._kind ?? o.kind] ?? '',
             description: o._description ?? o.description ?? '',
             content: []
         })),
