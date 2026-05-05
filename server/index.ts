@@ -57,8 +57,8 @@ async function main() {
 
   app.get('/*path', (_req, res) => res.sendFile(join(distDir, 'index.html')))
 
-  const port = process.env.PORT ?? 3333
-  app.listen(port, () => console.log(`trizbort-server running at http://localhost:${port}`))
+  const port = Number(process.env.PORT ?? 3333)
+  app.listen(port, '0.0.0.0', () => console.log(`trizbort-server running at http://0.0.0.0:${port}`))
 }
 
 main().catch(console.error)
