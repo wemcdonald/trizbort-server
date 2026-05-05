@@ -6,7 +6,7 @@ import { spliceGenerated } from './sentinelWriter.js'
 import { readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-export function createRouter(projectDir: string, cfg: TribortConfig) {
+export function createRouter(projectDir: string, cfg: TribortConfig, serverWrites: Set<string>) {
   const router = Router()
 
   router.get('/config', (_req, res) => res.json(cfg))
@@ -22,6 +22,7 @@ export function createRouter(projectDir: string, cfg: TribortConfig) {
   router.put('/map', async (req, res) => {
     try {
       const mapData = req.body
+      serverWrites.add(cfg.mapSource)
       await writeMap(projectDir, cfg.mapSource, mapData)
 
       for (const gen of cfg.generators) {

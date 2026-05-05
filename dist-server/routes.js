@@ -4,7 +4,7 @@ import { generateInform7 } from './codegen.js';
 import { spliceGenerated } from './sentinelWriter.js';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-export function createRouter(projectDir, cfg) {
+export function createRouter(projectDir, cfg, serverWrites) {
     const router = Router();
     router.get('/config', (_req, res) => res.json(cfg));
     router.get('/map', async (_req, res) => {
@@ -18,6 +18,7 @@ export function createRouter(projectDir, cfg) {
     router.put('/map', async (req, res) => {
         try {
             const mapData = req.body;
+            serverWrites.add(cfg.mapSource);
             await writeMap(projectDir, cfg.mapSource, mapData);
             for (const gen of cfg.generators) {
                 if (gen.target === 'inform7') {

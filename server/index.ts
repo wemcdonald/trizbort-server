@@ -27,11 +27,14 @@ async function main() {
     req.on('close', () => sseClients.delete(res))
   })
 
-  app.use('/api', createRouter(projectDir, cfg))
+  // Tracks writes made by this server so the watcher doesn't echo them back
+  const serverWrites = new Set<string>()
+  app.use('/api', createRouter(projectDir, cfg, serverWrites))
 
   // Watch map.json for external changes, notify all SSE clients
   const mapPath = join(projectDir, cfg.mapSource)
   watch(mapPath, { ignoreInitial: true }).on('change', () => {
+    if (serverWrites.delete(cfg.mapSource)) return  // our own write — skip
     for (const client of sseClients) {
       client.write('data: reload\n\n')
     }
