@@ -71,10 +71,23 @@ Note the underscore-prefixed fields — these are the TypeScript class propertie
 
 ### Target Project Config (trizbort.config.json)
 
-Drop this at the root of any Inform 7 project:
+Drop this at the root of any Inform 7 project. Two forms:
+
+**Single map (legacy)** — synthesised internally as one map named `default`:
 ```json
 {
   "mapSource": "design/map.json",
+  "generators": [ ... ]
+}
+```
+
+**Multi-map** — switchable from the UI; codegen runs only when the `primary` map is saved:
+```json
+{
+  "maps": [
+    { "name": "design",   "path": "design/map.json", "primary": true },
+    { "name": "sorcerer", "path": "lore/maps/sorcerer.json" }
+  ],
   "generators": [
     {
       "target": "inform7",
@@ -85,6 +98,8 @@ Drop this at the root of any Inform 7 project:
   ]
 }
 ```
+
+Client tracks the active map in the URL hash (`#map=sorcerer`). API: `GET /api/maps`, `GET/PUT /api/map?name=...` (omit `name` for primary). SSE events are tagged: `data: reload:<name>`.
 
 ### Code Generation
 

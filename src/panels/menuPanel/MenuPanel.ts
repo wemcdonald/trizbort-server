@@ -4,7 +4,7 @@ import { MapXMLLoader } from '../../io/mapXML'
 import { Dispatcher } from '../../Dispatcher'
 import { AppEvent } from '../../enums'
 import { MapJSON } from '../../io/mapJSON'
-import { isServerMode, loadMapFromServer, saveMapToServer, watchServerMap } from '../../io/serverSync'
+import { isServerMode, listMaps, loadMapFromServer, saveMapToServer, watchServerMap, getActiveMapName, setActiveMapName, MapInfo } from '../../io/serverSync'
 import { Panel }  from '../'
 import { Map } from '../../models';
 import { PngExporter } from '../../PngExporter';
@@ -62,10 +62,32 @@ export class MenuPanel extends Panel {
   }
 
   private _saveDebounce: ReturnType<typeof setTimeout> | null = null;
+  private _maps: MapInfo[] = [];
+  private _activeMap: string | null = null;
 
   private initServerMode() {
-    // Load map from server on startup
-    loadMapFromServer().then(text => {
+    listMaps().then(maps => {
+      this._maps = maps;
+      const requested = getActiveMapName();
+      const found = requested && maps.find(m => m.name === requested);
+      this._activeMap = found ? requested : (maps.find(m => m.primary)?.name ?? maps[0]?.name ?? null);
+      this.renderMapList();
+      this.loadActiveMap();
+    }).catch(e => console.error('Failed to list maps:', e));
+
+    // Auto-save after any map-mutating event (debounced)
+    Dispatcher.subscribe(this);
+
+    // Reload if any map changes externally — only if it's the active one
+    watchServerMap((name) => {
+      if (name && name !== this._activeMap) return;
+      this.loadActiveMap();
+    });
+  }
+
+  private loadActiveMap() {
+    const name = this._activeMap ?? undefined;
+    loadMapFromServer(name).then(text => {
       try {
         const map = MapJSON.load(text);
         App.map = map;
@@ -74,31 +96,66 @@ export class MenuPanel extends Panel {
         console.error('Failed to load map from server:', e);
       }
     });
+  }
 
-    // Auto-save after any map-mutating event (debounced)
-    Dispatcher.subscribe(this);
+  private renderMapList() {
+    const fileGroup = document.querySelector('#group-file')?.parentElement?.querySelector(':scope > div');
+    if (!fileGroup) return;
+    const existing = fileGroup.querySelector('#server-map-list');
+    if (existing) existing.remove();
 
-    // Reload if map.json changes externally
-    watchServerMap(() => {
-      loadMapFromServer().then(text => {
-        try {
-          const map = MapJSON.load(text);
-          App.map = map;
-          Dispatcher.notify(AppEvent.Load, null);
-        } catch (e) {
-          console.error('Server map reload failed:', e);
-        }
-      });
-    });
+    const section = document.createElement('div');
+    section.id = 'server-map-list';
+    const sep = document.createElement('div');
+    sep.className = 'menuseparator';
+    section.appendChild(sep);
+    for (const m of this._maps) {
+      const item = document.createElement('div');
+      item.className = 'menuitem';
+      const a = document.createElement('a');
+      a.href = '#';
+      const active = m.name === this._activeMap ? '● ' : '○ ';
+      a.innerHTML = `<svg class="icon small"><use href="icons.svg#open"></use></svg> ${active}${m.name}${m.primary ? ' (primary)' : ''}`;
+      a.addEventListener('click', (e) => { e.preventDefault(); this.switchMap(m.name); });
+      item.appendChild(a);
+      section.appendChild(item);
+    }
+    // Insert after the separator that follows "Load map" (i.e. before "Save map to file"'s separator group)
+    const loadItem = fileGroup.querySelector('#menu-load')?.parentElement;
+    if (loadItem && loadItem.parentElement === fileGroup) {
+      loadItem.after(section);
+    } else {
+      fileGroup.appendChild(section);
+    }
+  }
+
+  private switchMap(name: string) {
+    if (name === this._activeMap) { this.close(); return; }
+    // Flush any pending save for the previous map before switching
+    if (this._saveDebounce) {
+      clearTimeout(this._saveDebounce);
+      this._saveDebounce = null;
+      try {
+        const json = MapJSON.save(App.map);
+        saveMapToServer(json, this._activeMap ?? undefined).catch(e => console.error('Pre-switch save failed:', e));
+      } catch (e) { console.error(e); }
+    }
+    this._activeMap = name;
+    setActiveMapName(name);
+    this.renderMapList();
+    this.loadActiveMap();
+    this.close();
+    IdToast.toast(`Switched to map: ${name}`);
   }
 
   notify(event: AppEvent, _obj: any) {
     if (!isServerMode()) return;
     if (event === AppEvent.MouseMove || event === AppEvent.Select || event === AppEvent.Load) return;
     if (this._saveDebounce) clearTimeout(this._saveDebounce);
+    const name = this._activeMap ?? undefined;
     this._saveDebounce = setTimeout(() => {
       const json = MapJSON.save(App.map);
-      saveMapToServer(json).catch(e => console.error('Auto-save failed:', e));
+      saveMapToServer(json, name).catch(e => console.error('Auto-save failed:', e));
     }, 800);
   }
 
@@ -156,15 +213,7 @@ export class MenuPanel extends Panel {
 
   actionLoadMap() {
     if (isServerMode()) {
-      loadMapFromServer().then(text => {
-        try {
-          const map = MapJSON.load(text);
-          App.map = map;
-          Dispatcher.notify(AppEvent.Load, null);
-        } catch (e) {
-          console.error('Failed to reload from server:', e);
-        }
-      });
+      this.loadActiveMap();
       return;
     }
     this.inputLoad.click();
@@ -174,8 +223,8 @@ export class MenuPanel extends Panel {
     this.close();
     if (isServerMode()) {
       const json = MapJSON.save(App.map);
-      saveMapToServer(json)
-        .then(() => IdToast.toast('Map saved to server'))
+      saveMapToServer(json, this._activeMap ?? undefined)
+        .then(() => IdToast.toast(`Map saved: ${this._activeMap ?? 'default'}`))
         .catch(e => IdToast.toast(`Save failed: ${e.message}`));
       return;
     }

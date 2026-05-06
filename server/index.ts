@@ -27,18 +27,21 @@ async function main() {
     req.on('close', () => sseClients.delete(res))
   })
 
-  // Tracks writes made by this server so the watcher doesn't echo them back
+  // Tracks writes made by this server so the watcher doesn't echo them back.
+  // Keyed by relative map path.
   const serverWrites = new Set<string>()
   app.use('/api', createRouter(projectDir, cfg, serverWrites))
 
-  // Watch map.json for external changes, notify all SSE clients
-  const mapPath = join(projectDir, cfg.mapSource)
-  watch(mapPath, { ignoreInitial: true }).on('change', () => {
-    if (serverWrites.delete(cfg.mapSource)) return  // our own write — skip
-    for (const client of sseClients) {
-      client.write('data: reload\n\n')
-    }
-  })
+  // Watch every configured map for external changes
+  for (const entry of cfg.maps) {
+    const mapPath = join(projectDir, entry.path)
+    watch(mapPath, { ignoreInitial: true }).on('change', () => {
+      if (serverWrites.delete(entry.path)) return  // our own write — skip
+      for (const client of sseClients) {
+        client.write(`data: reload:${entry.name}\n\n`)
+      }
+    })
+  }
 
   const distDir = join(__dirname, '../dist')
 
