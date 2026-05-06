@@ -25,8 +25,8 @@ export class MapJSON {
         return this._dockEnd.id; 
       }
       if(key == '_startRoom' || key == 'startRoom') { // replace room references with IDs
-        if(this._startRoom == null) return 0;
-        return this._startRoom.id;
+        if(value == null) return 0;
+        return value.id;
       }
       return value;
     });
