@@ -73,7 +73,7 @@ export class Editor implements Subscriber {
     App.mainHTMLCanvas.addEventListener('mousedown', (e:MouseEvent) => { this.canvasMouseDown(e) } );
     App.mainHTMLCanvas.addEventListener('mouseup', (e:MouseEvent) => { this.canvasMouseUp(e) } );
     App.mainHTMLCanvas.addEventListener('mousemove', (e:MouseEvent) => { this.canvasMouseMove(e) } );
-    App.mainHTMLCanvas.addEventListener('wheel', (e:WheelEvent) => { this.canvasMouseWheel(e) } );    
+    App.mainHTMLCanvas.addEventListener('wheel', (e:WheelEvent) => { this.canvasMouseWheel(e) }, { passive: false });
     App.mainHTMLCanvas.addEventListener('dblclick', (e:MouseEvent) => { this.canvasMouseDoubleClick(e)} );
     App.mainHTMLCanvas.addEventListener('contextmenu', (e:MouseEvent) => { this.canvasContextMenu(e)} );
 
@@ -877,10 +877,17 @@ export class Editor implements Subscriber {
   }
 
   canvasMouseWheel(e: WheelEvent) {
-    App.centerX += e.deltaX;
-    App.centerY += e.deltaY;
+    // Trackpad pinch arrives as a synthesized Ctrl+wheel; treat as zoom.
+    if (e.ctrlKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) this.cmdZoomIn();
+      else if (e.deltaY > 0) this.cmdZoomOut();
+      return;
+    }
+    App.centerX -= e.deltaX;
+    App.centerY -= e.deltaY;
     this.refresh(true);
-  }   
+  }
 
   //-----------------------------------------
   //
@@ -1200,10 +1207,34 @@ export class Editor implements Subscriber {
   }
 
   cmdCenterView() {
-    App.centerX = 0;
-    App.centerY = 0;
+    const elems = App.map.elements;
+    if (elems.length === 0) {
+      App.centerX = 0;
+      App.centerY = 0;
+    } else {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const e of elems) {
+        // Connectors don't expose x/y — skip them; rooms/notes/blocks anchor the bbox.
+        if (typeof (e as any).x !== 'number' || !isFinite((e as any).x)) continue;
+        const x = (e as any).x, y = (e as any).y;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+      if (!isFinite(minX)) {
+        App.centerX = 0;
+        App.centerY = 0;
+      } else {
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const dpr = App.devicePixelRatio;
+        App.centerX = -cx * App.zoom * dpr;
+        App.centerY = -cy * App.zoom * dpr;
+      }
+    }
     this.refresh(true);
-  }  
+  }
   
   cmdAddRoom() {
     App.pushUndo();
