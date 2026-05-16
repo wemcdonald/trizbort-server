@@ -1,4 +1,5 @@
 import { Model, Room, MapSettings, Connector, Block, Note } from './'
+import { LineStyle } from '../enums'
 
 export class Map {
   title: string;
@@ -91,9 +92,14 @@ export class Map {
   }
 
   //
-  // List of rooms on the map.
+  // List of rooms on the map, used by code generators.
+  //
+  // Only solid-line rooms are returned. Non-solid rooms (dashed, dotted) are treated
+  // as draft/planning markers and skipped at codegen time so they never enter the
+  // generated game. Editor/drawing code uses `this.elements` directly and is
+  // unaffected by this filter.
   //
   get rooms(): Array<Room> {
-    return this.elements.filter((elem) => { return elem instanceof Room; }) as Array<Room>;
+    return this.elements.filter((elem) => { return elem instanceof Room && (elem as Room).lineStyle === LineStyle.Solid; }) as Array<Room>;
   }
 }

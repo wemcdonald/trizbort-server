@@ -62,20 +62,31 @@ interface RawElement {
   _startType?: number
   _endType?: number
   _oneWay?: boolean
+  _lineStyle?: number
   _name_conn?: string
   objects?: unknown[]
 }
 
+// LineStyle enum: None=0, Solid=1, Dash=2, DashDot=3, DashDotDot=4, Dot=5.
+// Anything other than Solid is a draft/planning marker and is skipped at codegen
+// time. Absent _lineStyle defaults to Solid (matches the editor default).
+const SOLID_LINESTYLE = 1
+function isSolid(el: { _lineStyle?: number }): boolean {
+  return el._lineStyle === undefined || el._lineStyle === SOLID_LINESTYLE
+}
+
 function buildConnections(roomId: number, elements: RawElement[]) {
   const roomMap = new Map(
-    elements.filter(e => e._type === 'Room').map(r => [r.id, r])
+    elements.filter(e => e._type === 'Room' && isSolid(e)).map(r => [r.id, r])
   )
   return elements
     .filter(e =>
       e._type === 'Connector' &&
+      isSolid(e) &&
       e._dockStart != null && e._dockStart !== 0 &&
       e._dockEnd != null && e._dockEnd !== 0 &&
-      (e._dockStart === roomId || e._dockEnd === roomId)
+      (e._dockStart === roomId || e._dockEnd === roomId) &&
+      roomMap.has(e._dockStart === roomId ? e._dockEnd! : e._dockStart!)
     )
     .map(conn => {
       if (conn._dockStart === roomId) {
@@ -107,7 +118,7 @@ export function generateInform7(rawMap: any): string {
   const startRoomId = rawMap.startRoom ?? null
 
   const rooms = elements
-    .filter(e => e._type === 'Room')
+    .filter(e => e._type === 'Room' && isSolid(e))
     .map(r => ({
       id: r.id,
       name: r._name ?? '',

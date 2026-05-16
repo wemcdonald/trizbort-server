@@ -360,6 +360,10 @@ export class Room extends Box {
    *
    * This is of use for code generators who are interested in all connections starting OR
    * ending at this room. Includes connector metadata (name, labels) for use in code comments.
+   *
+   * Only solid-line connectors that connect to solid-line rooms are returned. Non-solid
+   * connectors (dashed, dotted) and connectors that terminate at non-solid rooms are
+   * treated as draft/planning markers and skipped at codegen time.
    */
   get connections(): Array<{
     startDir: Direction,
@@ -371,7 +375,7 @@ export class Room extends Box {
     startLabel: string,
     endLabel: string
   }> {
-    let connectors = this.connectors;
+    let connectors = this.connectors.filter(c => c.lineStyle === LineStyle.Solid);
     return connectors.map((conn) => {
       if(conn.dockStart == this) {
         return {
@@ -396,6 +400,6 @@ export class Room extends Box {
           endLabel: conn.startLabel
         };
       }
-    });
+    }).filter(c => c.room.lineStyle === LineStyle.Solid);
   }
 }
